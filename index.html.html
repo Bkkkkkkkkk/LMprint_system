@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>黎明工程送印系統 - 水工三組 (V5.2 雙區域獨立解析版)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <style>
+        :root { --primary-color: #0056b3; --secondary-color: #6c757d; --bg-color: #f4f7f6; --border-color: #ccc; --accent: #e8f4fd; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: #333; padding: 20px; display: flex; justify-content: center; }
+        .container { background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 900px; position: relative; }
+        h2 { margin-top: 0; color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        h3 { color: #333; margin-bottom: 10px; font-size: 18px; display: flex; align-items: center; gap: 8px;}
+        
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .form-group { display: flex; align-items: center; gap: 10px; }
+        input[type="number"], input[type="text"], select { padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; }
+        input.short-num { width: 70px; }
+        
+        button { padding: 8px 16px; background-color: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer; transition: background 0.3s; }
+        button:hover { background-color: #004494; }
+        button:disabled { background-color: #999; cursor: not-allowed; }
+        button.btn-secondary { background-color: var(--secondary-color); width: 100%; font-size: 15px; padding: 10px;}
+        button.btn-secondary:hover { background-color: #5a6268; }
+        button.btn-danger { background-color: #dc3545; width: 100%; font-size: 15px; padding: 10px; margin-top: 10px;}
+        button.btn-danger:hover { background-color: #c82333; }
+        button.btn-success { background-color: #28a745; width: 100%; font-size: 15px; padding: 10px; margin-top: 10px;}
+        button.btn-success:hover { background-color: #218838; }
+        
+        .assistant-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px; }
+        .assistant-card { background: var(--accent); padding: 15px; border-radius: 8px; border: 1px solid #b8daff; display: flex; flex-direction: column; justify-content: space-between; }
+        .assistant-card.app-card { background: #fff8e1; border-color: #ffe082; }
+        .assistant-card h4 { margin: 0 0 10px 0; font-size: 16px; color: var(--primary-color); display: flex; align-items: center; gap: 6px; }
+        .assistant-card.app-card h4 { color: #b78103; }
+        
+        .upload-area { border: 2px dashed #9bc4e2; padding: 18px 10px; text-align: center; border-radius: 8px; margin: 10px 0; background: #fff; cursor: pointer; transition: all 0.3s;}
+        .upload-area:hover { border-color: var(--primary-color); background: #f0f8ff; }
+        .app-card .upload-area { border-color: #ffe082; }
+        .app-card .upload-area:hover { border-color: #f57f17; background: #fffde7; }
+        .upload-area input[type="file"] { display: none; }
+        
+        .card-setting { background: #fff; padding: 8px 10px; border-radius: 6px; font-size: 13px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
+        .checkbox-label { display: flex; align-items: center; gap: 6px; font-weight: bold; color: #d32f2f; cursor: pointer; font-size: 13px; }
+        
+        .progress-box { display: none; margin-top: 10px; }
+        .progress-bar { width: 100%; background: #ddd; border-radius: 5px; overflow: hidden; margin-top: 4px; }
+        .progress-fill { height: 10px; background: #28a745; width: 0%; transition: width 0.2s; }
+        
+        .suggestion-panel { background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #28a745; margin-bottom: 25px; display: none; }
+        .suggestion-item { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dashed #eee; font-size: 14px;}
+        .tag-color { color: #d32f2f; font-weight: bold;}
+        .tag-bw { color: #333; font-weight: bold;}
+        
+        .manual-section { border-top: 2px dashed #ddd; padding-top: 20px; }
+        .entry-section { background: #e9ecef; padding: 15px; border-radius: 6px; margin-bottom: 15px; }
+        
+        /* 即時統計儀表板 */
+        .live-summary { background: #fff; border: 2px solid #ffc107; padding: 15px; border-radius: 6px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);}
+        .live-summary h4 { margin: 0 0 10px 0; color: #d39e00; display: flex; align-items: center; gap: 5px; }
+        .summary-tags { display: flex; flex-wrap: wrap; gap: 10px; }
+        .summary-tag { background: #fff3cd; color: #856404; padding: 6px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; border: 1px solid #ffeeba; }
+        .summary-tag.tag-a4bw { background: #e2e3e5; color: #383d41; border-color: #d6d8db; }
+        .summary-tag.tag-total { background: #d4edda; color: #155724; border-color: #c3e6cb; }
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; }
+        th, td { border: 1px solid var(--border-color); padding: 8px; text-align: center; }
+        th { background-color: #f8f9fa; }
+        .page-count-hint { font-size: 12px; color: #888; margin-left: 5px; }
+        .editable-cell { cursor: pointer; transition: background 0.15s ease; border-radius: 3px; }
+        .editable-cell:hover { background: #eaf3ff; box-shadow: inset 0 0 0 1px #b8daff; }
+        .editable-cell:hover .edit-hint-icon { opacity: 1; }
+        .edit-hint-icon { opacity: 0; font-size: 11px; margin-left: 6px; transition: opacity 0.15s ease; }
+        .inline-edit-input { width: 92%; padding: 5px 8px; border: 2px solid var(--primary-color); border-radius: 4px; font-size: 14px; font-family: inherit; box-sizing: border-box; }
+        
+        #outputArea { margin-top: 20px; padding: 15px; background: #eef; border-left: 4px solid var(--primary-color); border-radius: 4px; display: none; white-space: pre-wrap; line-height: 1.6; font-family: monospace; font-size: 14px; }
+        #hiddenCanvas { display: none; }
+        .footer-signature { text-align: center; margin-top: 40px; padding-top: 15px; border-top: 1px solid #eaeaea; color: #999; font-size: 13px; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 id="mainTitle">黎明工程送印系統 (V5.2 獨立解析版)</h2>
+    
+    <div class="grid-2" style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #ddd;">
+        <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="loadProjectFile(event)">
+        <button class="btn-secondary" onclick="document.getElementById('fileInput').click()">📂 讀取專案檔 (.json)</button>
+        <button class="btn-secondary" onclick="saveProject()">💾 儲存專案檔 (.json)</button>
+    </div>
+
+    <!-- 智慧小幫手雙區域 (本文 / 附錄 獨立分區) -->
+    <div class="assistant-container">
+        <!-- 📘 本文專用解析區 -->
+        <div class="assistant-card">
+            <h4>📘 本文 PDF 解析專區</h4>
+            <div class="card-setting">
+                <span>插頁容差：連續 <input type="number" id="mainTolerance" value="10" min="0" style="width: 45px; padding: 2px;"> 頁</span>
+            </div>
+            <div class="upload-area" id="mainDropZone">
+                <p style="font-size: 14px; font-weight: bold; margin:0 0 4px 0;">點擊或拖曳【本文 PDF】</p>
+                <span style="font-size: 11px; color: #666;">(將自動抓取角落邏輯頁碼)</span>
+                <input type="file" id="mainPdfFile" accept="application/pdf">
+            </div>
+            <button id="analyzeMainBtn" style="width: 100%; padding: 8px; font-size: 14px;" disabled>🚀 開始解析本文</button>
+            <div class="progress-box" id="mainProgressBox">
+                <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                    <span id="mainStatusText" style="color: var(--primary-color);">準備中...</span>
+                    <span id="mainPercentText">0%</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" id="mainProgressFill"></div></div>
+            </div>
+        </div>
+
+        <!-- 📙 附錄專用解析區 -->
+        <div class="assistant-card app-card">
+            <h4>📙 附錄 PDF 解析專區</h4>
+            <div class="card-setting" style="background: #fffde7;">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="appForceBW" checked> 附錄全黑白 (無彩頁時開啟)
+                </label>
+            </div>
+            <div class="upload-area" id="appDropZone">
+                <p style="font-size: 14px; font-weight: bold; margin:0 0 4px 0; color: #b78103;">點擊或拖曳【附錄 PDF】</p>
+                <span style="font-size: 11px; color: #666;">(全黑白模式快掃 / 彩頁用實體頁碼)</span>
+                <input type="file" id="appPdfFile" accept="application/pdf">
+            </div>
+            <button id="analyzeAppBtn" style="width: 100%; padding: 8px; font-size: 14px; background-color: #f57f17;" disabled>🚀 開始解析附錄</button>
+            <div class="progress-box" id="appProgressBox">
+                <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                    <span id="appStatusText" style="color: #b78103;">準備中...</span>
+                    <span id="appPercentText">0%</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" id="appProgressFill" style="background-color: #f57f17;"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 建議結果顯示區 -->
+    <div class="suggestion-panel" id="suggestionPanel">
+        <h4 style="margin: 0 0 10px 0; color: #28a745;">💡 系統最佳化列印建議</h4>
+        <div id="suggestionContent"></div>
+        <button class="btn-success" id="applyBtn" style="margin-top: 10px;">✅ 將以上建議套用至下方清單</button>
+    </div>
+
+    <!-- 手動操作與清單區塊 -->
+    <div class="manual-section">
+        <h3>📝 送印專案清單與微調</h3>
+        
+        <div class="grid-2">
+            <div class="form-group"><label>內文總頁數:</label><input type="number" class="short-num" id="mainTotal" min="0" placeholder="必填"></div>
+            <div class="form-group"><label>共 (份):</label><input type="number" class="short-num" id="copies" min="1" value="1"></div>
+            <div class="form-group"><label>附錄總頁數:</label><input type="number" class="short-num" id="appTotal" min="0" value="0"></div>
+            <div class="form-group"><label>隔頁 (色):</label><input type="text" id="separator" placeholder="例如: 藍紙" style="width: 100px;"></div>
+        </div>
+
+        <!-- 即時數量統計儀表板 -->
+        <div class="live-summary">
+            <h4>📊 即時數量統計預覽 <span style="font-size: 12px; color: #856404; font-weight: normal;">(本文 + 附錄自動加總)</span></h4>
+            <div class="summary-tags" id="summaryTagsArea">
+                <span class="summary-tag tag-a4bw">A4黑白雙面：等待輸入總頁數</span>
+            </div>
+        </div>
+
+        <div class="entry-section">
+            <div style="margin-bottom: 10px;">
+                <label><input type="radio" name="docType" value="本文" checked> 本文頁碼</label>&nbsp;&nbsp;
+                <label><input type="radio" name="docType" value="附錄"> 附錄頁碼 (建議輸 PDF 實體頁碼，如：5~8)</label>
+            </div>
+            <div class="form-group">
+                <select id="printType">
+                    <option value="A4彩色雙面">A4彩色雙面</option>
+                    <option value="A3黑白單面">A3黑白單面</option>
+                    <option value="A3彩色單面">A3彩色單面</option>
+                    <option value="A3黑白雙面">A3黑白雙面</option>
+                    <option value="A3彩色雙面">A3彩色雙面</option>
+                    <option value="A4單面">A4單面</option>
+                </select>
+                <input type="text" id="manualRange" placeholder="例如: 15~20 或 8" style="width: 180px;">
+                <button onclick="addEntry()">手動加入清單</button>
+            </div>
+        </div>
+
+        <table>
+            <thead><tr><th>類別</th><th>特殊列印規格</th><th>頁碼範圍 (本文邏輯/附錄實體)</th><th>操作</th></tr></thead>
+            <tbody id="recordTableBody"></tbody>
+        </table>
+
+        <div class="grid-2">
+            <button class="btn-danger" onclick="resetApp()">全部重置清空</button>
+            <button class="btn-success" onclick="exportData()">產生並下載 TXT 報表</button>
+        </div>
+
+        <div id="outputArea"></div>
+    </div>
+
+    <div class="footer-signature">製作人：水工三組</div>
+</div>
+
+<canvas id="hiddenCanvas"></canvas>
+
+<script>
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.onkeydown = function(e) {
+        if(e.keyCode === 123 || (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74)) || (e.ctrlKey && e.keyCode === 85)) return false;
+    };
+    let secretClickCount = 0, clickTimer;
+    document.getElementById('mainTitle').addEventListener('click', () => {
+        secretClickCount++; clearTimeout(clickTimer);
+        if(secretClickCount === 5) {
+            alert("✨ 【系統提示】您已觸發隱藏彩蛋！\n\n獲得【匠術藝神】的專屬祝福！\n裝備效果：送印防禦力 +999，漏頁失誤率降至 0%\n\n祝您今日的任務通關順利！");
+            secretClickCount = 0;
+        } else clickTimer = setTimeout(() => { secretClickCount = 0; }, 2000);
+    });
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    let records = []; 
+    let currentSuggestions = []; 
+
+    document.getElementById('mainTotal').addEventListener('input', updateLiveSummary);
+    document.getElementById('appTotal').addEventListener('input', updateLiveSummary);
+
+    // ==================== 1. 專案存取 ====================
+    function saveProject() {
+        const state = {
+            mainTotal: document.getElementById('mainTotal').value, copies: document.getElementById('copies').value,
+            appTotal: document.getElementById('appTotal').value, separator: document.getElementById('separator').value, 
+            appForceBW: document.getElementById('appForceBW').checked, records: records
+        };
+        const dl = document.createElement('a'); dl.setAttribute("href", "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state)));
+        dl.setAttribute("download", `送印專案_${new Date().toISOString().slice(0,10).replace(/-/g,"")}.json`);
+        document.body.appendChild(dl); dl.click(); dl.remove();
+    }
+    function loadProjectFile(event) {
+        const file = event.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const state = JSON.parse(e.target.result);
+                document.getElementById('mainTotal').value = state.mainTotal || ''; document.getElementById('copies').value = state.copies || '1';
+                document.getElementById('appTotal').value = state.appTotal || '0'; document.getElementById('separator').value = state.separator || '';
+                if(state.appForceBW !== undefined) document.getElementById('appForceBW').checked = state.appForceBW;
+                records = state.records || []; renderTable(); alert("✅ 專案讀取成功！");
+            } catch(err) { alert("❌ 檔案格式錯誤！"); } event.target.value = '';
+        }; reader.readAsText(file);
+    }
+
+    // ==================== 2. 雙區域綁定 (本文 / 附錄 分別獨立) ====================
+    let selectedMainPdf = null, selectedAppPdf = null;
+
+    function setupDropZone(dropZoneId, fileInputId, btnId, callback) {
+        const zone = document.getElementById(dropZoneId);
+        const input = document.getElementById(fileInputId);
+        const btn = document.getElementById(btnId);
+
+        zone.addEventListener('click', () => input.click());
+        input.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                zone.querySelector('p').innerText = `📄 已載入：${file.name}`;
+                zone.style.borderColor = '#28a745';
+                btn.disabled = false;
+                callback(file);
+            }
+        });
+    }
+
+    setupDropZone('mainDropZone', 'mainPdfFile', 'analyzeMainBtn', file => { selectedMainPdf = file; });
+    setupDropZone('appDropZone', 'appPdfFile', 'analyzeAppBtn', file => { selectedAppPdf = file; });
+
+    document.getElementById('analyzeMainBtn').addEventListener('click', () => {
+        if (!selectedMainPdf) return;
+        runAnalysis('本文', selectedMainPdf, 'mainProgressBox', 'mainStatusText', 'mainPercentText', 'mainProgressFill', 'analyzeMainBtn');
+    });
+
+    document.getElementById('analyzeAppBtn').addEventListener('click', () => {
+        if (!selectedAppPdf) return;
+        runAnalysis('附錄', selectedAppPdf, 'appProgressBox', 'appStatusText', 'appPercentText', 'appProgressFill', 'analyzeAppBtn');
+    });
+
+    async function runAnalysis(docType, file, pBoxId, statusId, percentId, fillId, btnId) {
+        const btn = document.getElementById(btnId); btn.disabled = true;
+        document.getElementById(pBoxId).style.display = 'block';
+        document.getElementById('suggestionPanel').style.display = 'none';
+
+        const fileReader = new FileReader();
+        fileReader.onload = async function() {
+            await processPDF(docType, new Uint8Array(this.result), statusId, percentId, fillId);
+            btn.disabled = false;
+        };
+        fileReader.readAsArrayBuffer(file);
+    }
+
+    async function processPDF(docType, data, statusId, percentId, fillId) {
+        const loadingTask = pdfjsLib.getDocument(data); const pdf = await loadingTask.promise;
+        const totalPages = pdf.numPages;
+        const tolerance = parseInt(document.getElementById('mainTolerance').value) || 0;
+        const appForceBW = document.getElementById('appForceBW').checked;
+
+        if (docType === '本文') document.getElementById('mainTotal').value = totalPages;
+        if (docType === '附錄') document.getElementById('appTotal').value = totalPages;
+        updateLiveSummary();
+
+        let pagesData = [];
+        const canvas = document.getElementById('hiddenCanvas'); const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        let lastValidLabel = null;
+        let lastValidPhysical = 0;
+
+        for (let i = 1; i <= totalPages; i++) {
+            document.getElementById(statusId).innerText = `掃描第 ${i}/${totalPages} 頁...`;
+            document.getElementById(fillId).style.width = `${(i / totalPages) * 100}%`;
+            document.getElementById(percentId).innerText = `${Math.round((i / totalPages) * 100)}%`;
+
+            const page = await pdf.getPage(i); const viewport = page.getViewport({ scale: 1.0 });
+            let size = "A4"; if (Math.abs(Math.min(viewport.width, viewport.height) - 842) < 30) size = "A3";
+            canvas.width = viewport.width; canvas.height = viewport.height;
+            ctx.fillStyle = "white"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+
+            let isColor = false;
+            if (docType === '本文' || !appForceBW) {
+                isColor = checkPixelColor(ctx.getImageData(0, 0, canvas.width, canvas.height).data);
+            }
+
+            let pageLabel = "";
+            if (docType === '附錄') {
+                pageLabel = `${i}`; // 附錄直接採用實體頁碼
+            } else {
+                // 本文採用邏輯頁碼
+                const textContent = await page.getTextContent();
+                let items = textContent.items.sort((a, b) => a.transform[5] - b.transform[5]);
+                let extractedPageNum = null;
+                for (let item of items) {
+                    if (item.transform[5] < viewport.height * 0.15) {
+                        let txt = item.str.trim();
+                        if (txt.length > 0 && txt.length < 10 && /\d/.test(txt)) { extractedPageNum = txt; break; }
+                    }
+                }
+                if (extractedPageNum) {
+                    lastValidLabel = extractedPageNum; lastValidPhysical = i;
+                } else {
+                    if (lastValidLabel) {
+                        let gap = i - lastValidPhysical;
+                        extractedPageNum = lastValidLabel.replace(/\d+/, match => parseInt(match) + gap);
+                    } else {
+                        extractedPageNum = `${i}`;
+                    }
+                }
+                pageLabel = extractedPageNum;
+            }
+
+            pagesData[i] = { size: size, isColor: isColor, label: pageLabel };
+        }
+
+        document.getElementById(statusId).innerText = `最佳化計算中...`;
+
+        if (docType === '本文' || !appForceBW) {
+            for (let i = 1; i <= totalPages; i += 2) {
+                let p1 = pagesData[i]; let p2 = pagesData[i+1];
+                if (p1 && p1.size === 'A4' && p2 && p2.size === 'A4') { if (p1.isColor || p2.isColor) { p1.isColor = true; p2.isColor = true; } }
+            }
+
+            let lastColorIdx = -1;
+            for (let i = 1; i <= totalPages; i++) {
+                if (pagesData[i].size === 'A4' && pagesData[i].isColor) {
+                    if (lastColorIdx !== -1 && (i - lastColorIdx - 1) > 0 && (i - lastColorIdx - 1) <= tolerance) {
+                        let allA4 = true; for(let j = lastColorIdx + 1; j < i; j++) { if(pagesData[j].size !== 'A4') allA4 = false; }
+                        if(allA4) { for(let j = lastColorIdx + 1; j < i; j++) pagesData[j].isColor = true; }
+                    }
+                    lastColorIdx = i;
+                }
+            }
+        }
+
+        currentSuggestions = [];
+        const a4Color = extractRanges(pagesData, 'A4', true), a3Color = extractRanges(pagesData, 'A3', true), a3Bw = extractRanges(pagesData, 'A3', false);
+        if(a4Color) currentSuggestions.push({ docType, printType: 'A4彩色雙面', range: a4Color });
+        if(a3Color) currentSuggestions.push({ docType, printType: 'A3彩色單面', range: a3Color });
+        if(a3Bw) currentSuggestions.push({ docType, printType: 'A3黑白單面', range: a3Bw });
+
+        renderSuggestions(docType, appForceBW);
+        document.getElementById(statusId).innerText = `解析完成！`;
+    }
+
+    function checkPixelColor(data) {
+        let colorPixels = 0; const threshold = 15; const white = 245;
+        for (let i = 0; i < data.length; i += 4) {
+            if (data[i] < white || data[i+1] < white || data[i+2] < white) {
+                if (Math.max(Math.abs(data[i]-data[i+1]), Math.abs(data[i]-data[i+2]), Math.abs(data[i+1]-data[i+2])) > threshold) colorPixels++;
+            }
+        } return (colorPixels / (data.length/4)) > 0.001;
+    }
+
+    function extractRanges(pagesData, targetSize, targetColor) {
+        let segments = []; let currentGroup = [];
+        for (let i = 1; i < pagesData.length; i++) {
+            if (pagesData[i] && pagesData[i].size === targetSize && pagesData[i].isColor === targetColor) currentGroup.push(pagesData[i].label);
+            else { if (currentGroup.length > 0) { segments.push(formatGroup(currentGroup)); currentGroup = []; } }
+        }
+        if (currentGroup.length > 0) segments.push(formatGroup(currentGroup));
+        return segments.length > 0 ? segments.join(', ') : null;
+    }
+    function formatGroup(arr) { return arr.length === 1 ? arr[0] : `${arr[0]}~${arr[arr.length-1]}`; }
+
+    function renderSuggestions(docType, appForceBW) {
+        const panel = document.getElementById('suggestionPanel'); const content = document.getElementById('suggestionContent');
+        if (currentSuggestions.length === 0) {
+            if (docType === '附錄' && appForceBW) {
+                content.innerHTML = `<div class="suggestion-item">已開啟「附錄全黑白」，全份附錄皆預設為 A4 黑白印製。</div>`;
+            } else {
+                content.innerHTML = `<div class="suggestion-item">[${docType}] 全書無特殊頁面，皆為 A4 黑白。</div>`;
+            }
+        } else {
+            let html = ''; currentSuggestions.forEach(s => {
+                let colorClass = s.printType.includes('彩色') ? 'tag-color' : 'tag-bw';
+                let pageNote = (s.docType === '附錄') ? ' (PDF實體頁碼)' : '';
+                html += `<div class="suggestion-item">[${s.docType}] <span class="${colorClass}">${s.printType}</span> 👉 頁碼${pageNote}：${s.range}</div>`;
+            }); content.innerHTML = html;
+        } panel.style.display = 'block';
+    }
+
+    document.getElementById('applyBtn').addEventListener('click', () => {
+        currentSuggestions.forEach(s => records.push({ docType: s.docType, printType: s.printType, range: s.range }));
+        renderTable(); document.getElementById('suggestionPanel').style.display = 'none';
+    });
+
+    // ==================== 3. 頁面統計解析核心 (本文與附錄自動加總) ====================
+    function parsePageCount(fullRangeStr) {
+        let total = 0; if (!fullRangeStr) return 0;
+        let segments = fullRangeStr.split(',');
+        segments.forEach(seg => {
+            seg = seg.trim(); if (!seg) return;
+            let parts = seg.split('~');
+            if (parts.length === 1) total += 1;
+            else if (parts.length === 2) {
+                let m1 = parts[0].match(/\d+/g); let m2 = parts[1].match(/\d+/g);
+                if (m1 && m2) {
+                    let n1 = parseInt(m1[m1.length-1]); let n2 = parseInt(m2[m2.length-1]);
+                    if (n2 >= n1) total += (n2 - n1 + 1); else total += 1; 
+                } else total += 1;
+            }
+        });
+        return total;
+    }
+
+    function updateLiveSummary() {
+        let mainT = parseInt(document.getElementById('mainTotal').value) || 0;
+        let appT = parseInt(document.getElementById('appTotal').value) || 0;
+        let grandTotal = mainT + appT;
+        
+        let totals = { 'A4彩色雙面': 0, 'A3黑白單面': 0, 'A3彩色單面': 0, 'A3黑白雙面': 0, 'A3彩色雙面': 0, 'A4單面': 0, 'A4黑白雙面': 0 };
+        let specialMain = 0; let specialApp = 0;
+
+        records.forEach(rec => {
+            let count = parsePageCount(rec.range);
+            if (totals[rec.printType] !== undefined) totals[rec.printType] += count;
+            if (rec.printType !== 'A4黑白雙面') {
+                if (rec.docType === '本文') specialMain += count;
+                if (rec.docType === '附錄') specialApp += count;
+            }
+        });
+
+        let autoMainBW = Math.max(0, mainT - specialMain);
+        let autoAppBW = Math.max(0, appT - specialApp);
+        totals['A4黑白雙面'] += (autoMainBW + autoAppBW);
+
+        let html = `<span class="summary-tag tag-total">全書總計：${grandTotal} 頁 (本文 ${mainT} + 附錄 ${appT})</span>`;
+        if (totals['A4黑白雙面'] > 0 || grandTotal === 0) {
+            html += `<span class="summary-tag tag-a4bw">A4黑白雙面：${grandTotal > 0 ? totals['A4黑白雙面'] : '需輸入總頁數'} 頁</span>`;
+        }
+        for (let key in totals) {
+            if (totals[key] > 0 && key !== 'A4黑白雙面') {
+                html += `<span class="summary-tag">${key}：${totals[key]} 頁</span>`;
+            }
+        }
+        document.getElementById('summaryTagsArea').innerHTML = html;
+    }
+
+    // ==================== 4. 清單操作與表格編輯 ====================
+    function addEntry() {
+        const docType = document.querySelector('input[name="docType"]:checked').value; const printType = document.getElementById('printType').value;
+        const range = document.getElementById('manualRange').value.trim();
+        if (!range) return alert("請輸入頁碼範圍！");
+        records.push({ docType, printType, range }); document.getElementById('manualRange').value = ''; renderTable();
+    }
+    function removeEntry(index) { records.splice(index, 1); renderTable(); }
+
+    function escapeHtml(str) {
+        return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function validateRangeString(str) {
+        if (!str || !str.trim()) return { valid: false, message: '頁碼範圍不可留空。' };
+        const segments = str.split(',');
+        for (let raw of segments) {
+            const seg = raw.trim();
+            if (!seg) return { valid: false, message: '偵測到空白項目，可能是多打了一個逗號「,」。' };
+            const parts = seg.split('~');
+            if (parts.length > 2) return { valid: false, message: `「${seg}」波浪號太多了。` };
+            if (parts.length === 2) {
+                const a = parts[0].trim(), b = parts[1].trim();
+                if (!a || !b || !/\d/.test(a) || !/\d/.test(b)) return { valid: false, message: `「${seg}」格式不完整。` };
+            } else {
+                if (!/\d/.test(parts[0])) return { valid: false, message: `「${seg}」找不到數字。` };
+            }
+        }
+        return { valid: true };
+    }
+
+    function startEdit(td, index) {
+        if (td.querySelector('input')) return;
+        const rec = records[index];
+        td.innerHTML = `<input type="text" class="inline-edit-input" value="${escapeHtml(rec.range)}">`;
+        const input = td.querySelector('input');
+        input.focus(); input.select();
+
+        input.onkeydown = function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+            else if (e.key === 'Escape') { e.preventDefault(); input.onblur = null; renderTable(); }
+        };
+        input.onblur = function() { saveEdit(index, input.value); };
+    }
+
+    function saveEdit(index, newValue) {
+        newValue = newValue.trim();
+        const check = validateRangeString(newValue);
+        if (!check.valid) {
+            alert(`⚠️ 頁碼格式錯誤：\n${check.message}`); renderTable(); return;
+        }
+        records[index].range = newValue; renderTable();
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('recordTableBody'); tbody.innerHTML = '';
+        records.forEach((rec, index) => {
+            let pCount = parsePageCount(rec.range);
+            let note = (rec.docType === '附錄') ? '<span style="font-size:11px; color:#666;">(PDF實體頁)</span>' : '';
+            tbody.innerHTML += `<tr>
+                <td>${rec.docType} ${note}</td><td>${rec.printType}</td>
+                <td class="editable-cell" onclick="startEdit(this, ${index})" title="點擊修改頁碼範圍">
+                    <span class="range-text">${escapeHtml(rec.range)}</span> <span class="page-count-hint">(${pCount} 頁)</span><span class="edit-hint-icon">✏️ 點擊編輯</span>
+                </td>
+                <td><button class="btn-danger" style="padding: 4px 8px; font-size: 12px; margin:0; width:auto;" onclick="removeEntry(${index})">刪除</button></td>
+            </tr>`;
+        });
+        updateLiveSummary();
+    }
+
+    function resetApp() {
+        if(confirm("確定要徹底清空所有資料嗎？")) {
+            records = []; currentSuggestions = []; document.getElementById('mainTotal').value = ''; document.getElementById('appTotal').value = '0';
+            document.getElementById('outputArea').style.display = 'none'; document.getElementById('suggestionPanel').style.display = 'none';
+            document.getElementById('mainProgressBox').style.display = 'none'; document.getElementById('appProgressBox').style.display = 'none';
+            renderTable();
+        }
+    }
+
+    // ==================== 5. 報表匯出邏輯 ====================
+    function exportData() {
+        const mainTotal = parseInt(document.getElementById('mainTotal').value) || 0;
+        const appTotal = parseInt(document.getElementById('appTotal').value) || 0;
+        const copies = document.getElementById('copies').value || 1;
+        const separator = document.getElementById('separator').value || '無';
+        if (mainTotal === 0 && appTotal === 0) return alert("請務必輸入「內文總頁數」或「附錄總頁數」！");
+
+        let totals = { 'A4黑白雙面': 0, 'A4彩色雙面': 0, 'A3黑白單面': 0, 'A3彩色單面': 0, 'A3黑白雙面': 0, 'A3彩色雙面': 0, 'A4單面': 0 };
+        let specialMain = 0, specialApp = 0;
+
+        records.forEach(rec => {
+            let count = parsePageCount(rec.range);
+            if (totals[rec.printType] !== undefined) totals[rec.printType] += count;
+            if (rec.printType !== 'A4黑白雙面') {
+                if (rec.docType === '本文') specialMain += count;
+                if (rec.docType === '附錄') specialApp += count;
+            }
+        });
+        
+        totals['A4黑白雙面'] += (Math.max(0, mainTotal - specialMain) + Math.max(0, appTotal - specialApp));
+        const grandTotal = mainTotal + appTotal;
+
+        let outStr = `=================================\n           送 印 單 資 訊\n=================================\n`;
+        outStr += `► 列印份數：共 ${copies} 份\n► 隔頁紙色：${separator}\n► 內文頁數：${mainTotal} 頁\n► 附錄頁數：${appTotal} 頁\n► 全書頁數：共 ${grandTotal} 頁\n\n`;
+        outStr += `【 全 書 總 計 清 單 (本文+附錄) 】\n---------------------------------\n  全書總計 ： ${grandTotal} 頁\n`;
+        Object.keys(totals).forEach(key => {
+            if (totals[key] > 0) outStr += `  ${key}${key.length===6 ? '' : '  '}： ${totals[key]} 頁\n`;
+        });
+        
+        outStr += `\n=================================\n       特 殊 規 格 指 定\n=================================\n`;
+        outStr += `(未列於下方之頁面，預設皆為 A4黑白雙面列印)\n\n`;
+
+        ['本文', '附錄'].forEach(dType => {
+            let filterRecs = records.filter(r => r.docType === dType);
+            if(filterRecs.length > 0) {
+                let noteStr = (dType === '附錄') ? ' (註: 頁碼為 PDF 實體頁碼)' : '';
+                outStr += `【 ${dType} 詳細設定${noteStr} 】\n`;
+                let grouped = {};
+                filterRecs.forEach(r => {
+                    if(!grouped[r.printType]) grouped[r.printType] = [];
+                    grouped[r.printType].push(r.range);
+                });
+                Object.keys(grouped).forEach(type => {
+                    outStr += ` ▸ ${type}：\n   頁碼: ${grouped[type].join(", ")}
+`;
+                });
+                outStr += `\n`;
+            }
+        });
+
+        document.getElementById('outputArea').innerText = outStr; document.getElementById('outputArea').style.display = 'block';
+        const dl = document.createElement('a'); dl.href = URL.createObjectURL(new Blob(["\uFEFF" + outStr], { type: 'text/plain;charset=utf-8' }));
+        dl.download = `送印單_${new Date().toISOString().slice(0,10).replace(/-/g,"")}.txt`; document.body.appendChild(dl); dl.click(); dl.remove();
+    }
+</script>
+
+</body>
+</html>
