@@ -222,6 +222,10 @@
                 <label for="spineFontSize">字體大小</label>
                 <input type="number" id="spineFontSize" value="13" min="8" max="40" step="0.5" style="width: 70px;"> <span style="font-size: 13px; color: #666;">pt（標楷體，原書背檔為 13）</span>
             </div>
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                <button type="button" onclick="fillSpineFromMainPdf()" style="background:#fff; color:#7b3fb5; border:1px solid #7b3fb5;">📄 從本文 PDF 封面讀取</button>
+                <span id="spineAutoNote" style="font-size:12px; color:#28a745;"></span>
+            </div>
             <div style="font-size: 12px; color: #666; margin-bottom: 4px;">預覽（直書，由右至左）：</div>
             <div class="spine-preview"><div class="spine-preview-text" id="spinePreview">（請輸入上方欄位）</div></div>
             <div id="spineWarn" style="font-size: 12px; color: #d32f2f; margin-bottom: 8px; display: none;"></div>
@@ -340,6 +344,7 @@
         const appForceBW = document.getElementById('appForceBW').checked;
 
         if (docType === '本文') document.getElementById('mainTotal').value = totalPages;
+        if (docType === '本文') { try { applyCoverInfo(await extractCoverInfo(pdf)); } catch (e) { console.warn('封面讀取失敗', e); } }
         if (docType === '附錄') document.getElementById('appTotal').value = totalPages;
         updateLiveSummary();
 
@@ -701,6 +706,62 @@
         } else warn.style.display = 'none';
     }
     ['spineOrg', 'spineProject', 'spineReport', 'spineFontSize'].forEach(id => document.getElementById(id).addEventListener('input', updateSpinePreview));
+
+    // ---- 從本文 PDF 封面自動帶入 ----
+    // 讀第 1 頁文字，依垂直間距分成區塊：第1塊=機關名、第2塊=案名(可折行)、第3塊=報告書名；
+    // 頁面下方 22% (顧問公司、日期) 忽略。抓不到時退回 PDF 文件屬性的 標題/主旨/關鍵字。
+    async function extractCoverInfo(pdf) {
+        const page = await pdf.getPage(1);
+        const vp = page.getViewport({ scale: 1.0 });
+        const tc = await page.getTextContent();
+        const items = tc.items.filter(it => it.str && it.str.trim()).map(it => ({
+            str: it.str, x: it.transform[4], y: vp.height - it.transform[5],
+            h: it.height || Math.abs(it.transform[3]) || 12
+        })).sort((a, b) => a.y - b.y);
+
+        const rows = [];
+        items.forEach(it => {
+            const row = rows.find(r => Math.abs(r.y - it.y) < it.h * 0.5);
+            if (row) row.items.push(it); else rows.push({ y: it.y, h: it.h, items: [it] });
+        });
+        rows.sort((a, b) => a.y - b.y);
+        const cjk = '[\\u4e00-\\u9fff\\u3000-\\u303f\\uff00-\\uffef]';
+        const clean = t => t.replace(new RegExp(`(?<=${cjk})\\s+(?=${cjk})`, 'g'), '').replace(/\s+/g, ' ').trim();
+        const lines = rows.filter(r => r.y < vp.height * 0.78).map(r => ({
+            y: r.y, h: r.h, text: clean(r.items.sort((a, b) => a.x - b.x).map(i => i.str).join(''))
+        })).filter(l => l.text);
+
+        const blocks = [];
+        lines.forEach(l => {
+            const last = blocks[blocks.length - 1];
+            if (last && (l.y - last.lastY) <= l.h * 2) { last.text += l.text; last.lastY = l.y; }
+            else blocks.push({ text: l.text, lastY: l.y });
+        });
+        if (blocks.length >= 3) return { org: blocks[0].text, project: blocks[1].text, report: blocks[2].text, source: '封面' };
+
+        try {
+            const info = (await pdf.getMetadata()).info || {};
+            if (info.Title && info.Subject && info.Keywords) return { org: info.Title.trim(), project: info.Subject.trim(), report: info.Keywords.trim(), source: 'PDF 文件屬性' };
+        } catch (e) {}
+        return null;
+    }
+
+    function applyCoverInfo(info) {
+        const note = document.getElementById('spineAutoNote');
+        if (!info) { note.style.color = '#d32f2f'; note.textContent = '⚠️ 無法從封面辨識，請手動輸入'; return; }
+        document.getElementById('spineOrg').value = info.org;
+        document.getElementById('spineProject').value = info.project;
+        document.getElementById('spineReport').value = info.report;
+        updateSpinePreview();
+        note.style.color = '#28a745'; note.textContent = `✅ 已從${info.source}帶入，請確認內容`;
+    }
+
+    async function fillSpineFromMainPdf() {
+        if (!selectedMainPdf) return alert("請先在上方【本文 PDF 解析專區】載入本文 PDF！");
+        const buf = await selectedMainPdf.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument(new Uint8Array(buf)).promise;
+        applyCoverInfo(await extractCoverInfo(pdf));
+    }
 
     // 快速填寫選項：點選後填入欄位，之後仍可自由修改；想增減選項直接改下面兩個陣列
     const ORG_PRESETS = ['農業部農田水利署臺中管理處', '農業部農田水利署雲林管理處', '農業部農田水利署新竹管理處', '農業部農田水利署嘉南管理處', '農業部農田水利署南投管理處', '屏東縣政府'];
