@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LMprint_systemV5.2 </title>
+    <title>LMprint_systemV5.3</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root { --primary-color: #0056b3; --secondary-color: #6c757d; --bg-color: #f4f7f6; --border-color: #ccc; --accent: #e8f4fd; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: #333; padding: 20px; display: flex; justify-content: center; }
@@ -74,13 +75,25 @@
         
         #outputArea { margin-top: 20px; padding: 15px; background: #eef; border-left: 4px solid var(--primary-color); border-radius: 4px; display: none; white-space: pre-wrap; line-height: 1.6; font-family: monospace; font-size: 14px; }
         #hiddenCanvas { display: none; }
+
+        /* 書背區 */
+        .spine-section { margin-top: 30px; border-top: 2px dashed #ddd; padding-top: 20px; }
+        .spine-box { background: #f3e8ff; border: 1px solid #d6b8f5; border-radius: 8px; padding: 15px; }
+        .spine-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .spine-row label { width: 80px; font-weight: bold; font-size: 14px; flex-shrink: 0; }
+        .spine-row input[type="text"] { flex: 1; }
+        .spine-preview { display: flex; justify-content: center; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 10px; margin: 10px 0; height: 220px; overflow: hidden; }
+        .spine-preview-text { writing-mode: vertical-rl; font-family: "標楷體", "DFKai-SB", serif; font-size: 16px; white-space: pre; letter-spacing: 1px; }
+        button.btn-spine { background-color: #7b3fb5; width: 100%; font-size: 15px; padding: 10px; }
+        button.btn-spine:hover { background-color: #63318f; }
+
         .footer-signature { text-align: center; margin-top: 40px; padding-top: 15px; border-top: 1px solid #eaeaea; color: #999; font-size: 13px; letter-spacing: 1px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2 id="mainTitle">LMprint_systemV5.2</h2>
+    <h2 id="mainTitle">LMprint_systemV5.3</h2>
     
     <div class="grid-2" style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #ddd;">
         <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="loadProjectFile(event)">
@@ -193,6 +206,24 @@
         <div id="outputArea"></div>
     </div>
 
+    <!-- 📕 書背產生區 -->
+    <div class="spine-section">
+        <h3>📕 書背產生</h3>
+        <div class="spine-box">
+            <div class="spine-row"><label for="spineOrg">機關名</label><input type="text" id="spineOrg" placeholder="例如: 農業部農田水利署臺中管理處"></div>
+            <div class="spine-row"><label for="spineProject">案名</label><input type="text" id="spineProject" placeholder="例如: 白冷圳擴大灌溉服務設施規劃管理維護工作委託技術服務"></div>
+            <div class="spine-row"><label for="spineReport">報告書名</label><input type="text" id="spineReport" placeholder="例如: 期中報告"></div>
+            <div class="spine-row">
+                <label for="spineFontSize">字體大小</label>
+                <input type="number" id="spineFontSize" value="13" min="8" max="40" step="0.5" style="width: 70px;"> <span style="font-size: 13px; color: #666;">pt（標楷體，原書背檔為 13）</span>
+            </div>
+            <div style="font-size: 12px; color: #666; margin-bottom: 4px;">預覽（直書，由右至左）：</div>
+            <div class="spine-preview"><div class="spine-preview-text" id="spinePreview">（請輸入上方欄位）</div></div>
+            <div id="spineWarn" style="font-size: 12px; color: #d32f2f; margin-bottom: 8px; display: none;"></div>
+            <button class="btn-spine" onclick="exportSpine()">📥 產生並下載書背 (.docx)</button>
+        </div>
+    </div>
+
     <div class="footer-signature">製作人：성진우</div>
 </div>
 
@@ -224,7 +255,9 @@
         const state = {
             mainTotal: document.getElementById('mainTotal').value, copies: document.getElementById('copies').value,
             appTotal: document.getElementById('appTotal').value, separator: document.getElementById('separator').value, 
-            appForceBW: document.getElementById('appForceBW').checked, records: records
+            appForceBW: document.getElementById('appForceBW').checked, records: records,
+            spineOrg: document.getElementById('spineOrg').value, spineProject: document.getElementById('spineProject').value,
+            spineReport: document.getElementById('spineReport').value, spineFontSize: document.getElementById('spineFontSize').value
         };
         const dl = document.createElement('a'); dl.setAttribute("href", "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state)));
         dl.setAttribute("download", `送印專案_${new Date().toISOString().slice(0,10).replace(/-/g,"")}.json`);
@@ -239,6 +272,11 @@
                 document.getElementById('mainTotal').value = state.mainTotal || ''; document.getElementById('copies').value = state.copies || '1';
                 document.getElementById('appTotal').value = state.appTotal || '0'; document.getElementById('separator').value = state.separator || '';
                 if(state.appForceBW !== undefined) document.getElementById('appForceBW').checked = state.appForceBW;
+                document.getElementById('spineOrg').value = state.spineOrg || '';
+                document.getElementById('spineProject').value = state.spineProject || '';
+                document.getElementById('spineReport').value = state.spineReport || '';
+                document.getElementById('spineFontSize').value = state.spineFontSize || '13';
+                updateSpinePreview();
                 records = state.records || []; renderTable(); alert("✅ 專案讀取成功！");
             } catch(err) { alert("❌ 檔案格式錯誤！"); } event.target.value = '';
         }; reader.readAsText(file);
@@ -355,17 +393,30 @@
         document.getElementById(statusId).innerText = `最佳化計算中...`;
 
         if (docType === '本文' || !appForceBW) {
+            // 【調整1】雙面列印以「張」為單位：奇偶頁成對 (1-2、3-4…)，只要其中一頁是彩色，整張都算彩色。
+            // 這個「整張彩色」只用在下面的『連續黑白頁容忍』計算，不會改動輸出的頁碼，
+            // 因此 2~5 是彩頁時，計算時視為 1~6，但輸出仍是 2~5。
+            let sheetColor = [];
+            for (let i = 1; i <= totalPages; i++) sheetColor[i] = pagesData[i].isColor;
             for (let i = 1; i <= totalPages; i += 2) {
-                let p1 = pagesData[i]; let p2 = pagesData[i+1];
-                if (p1 && p1.size === 'A4' && p2 && p2.size === 'A4') { if (p1.isColor || p2.isColor) { p1.isColor = true; p2.isColor = true; } }
+                let p1 = pagesData[i], p2 = pagesData[i + 1];
+                if (p1 && p1.size === 'A4' && p2 && p2.size === 'A4') {
+                    if (p1.isColor || p2.isColor) { sheetColor[i] = true; sheetColor[i + 1] = true; }
+                }
             }
 
+            // 【調整2】連續黑白頁容忍：只在「兩個 A4 彩色頁之間、且中間全是 A4」時才補成彩色。
+            // 中間只要夾到 A3 頁，那段黑白頁本來就必須插頁處理，所以不補色。
             let lastColorIdx = -1;
             for (let i = 1; i <= totalPages; i++) {
-                if (pagesData[i].size === 'A4' && pagesData[i].isColor) {
-                    if (lastColorIdx !== -1 && (i - lastColorIdx - 1) > 0 && (i - lastColorIdx - 1) <= tolerance) {
-                        let allA4 = true; for(let j = lastColorIdx + 1; j < i; j++) { if(pagesData[j].size !== 'A4') allA4 = false; }
-                        if(allA4) { for(let j = lastColorIdx + 1; j < i; j++) pagesData[j].isColor = true; }
+                if (pagesData[i].size === 'A4' && sheetColor[i]) {
+                    if (lastColorIdx !== -1) {
+                        let gapLen = i - lastColorIdx - 1;
+                        if (gapLen > 0 && gapLen <= tolerance) {
+                            let allA4 = true;
+                            for (let j = lastColorIdx + 1; j < i; j++) { if (pagesData[j].size !== 'A4') { allA4 = false; break; } }
+                            if (allA4) { for (let j = lastColorIdx + 1; j < i; j++) pagesData[j].isColor = true; }
+                        }
                     }
                     lastColorIdx = i;
                 }
@@ -599,8 +650,7 @@
                     grouped[r.printType].push(r.range);
                 });
                 Object.keys(grouped).forEach(type => {
-                    outStr += ` ▸ ${type}：\n   頁碼: ${grouped[type].join(", ")}
-`;
+                    outStr += ` ▸ ${type}：\n   頁碼: ${grouped[type].join(", ")}\n`;
                 });
                 outStr += `\n`;
             }
@@ -609,6 +659,73 @@
         document.getElementById('outputArea').innerText = outStr; document.getElementById('outputArea').style.display = 'block';
         const dl = document.createElement('a'); dl.href = URL.createObjectURL(new Blob(["\uFEFF" + outStr], { type: 'text/plain;charset=utf-8' }));
         dl.download = `送印單_${new Date().toISOString().slice(0,10).replace(/-/g,"")}.txt`; document.body.appendChild(dl); dl.click(); dl.remove();
+    }
+
+    // ==================== 6. 書背產生 (.docx，A4 直書、置中、標楷體) ====================
+    // 版面比照「書背.doc」：A4 直式、文字方向由上而下 (tbRl)、置中、13pt、
+    // 機關名／案名／報告書名之間以空格分隔 (原檔分別為 7、9 個半形空格)。
+    const SPINE_GAP_1 = 7;  // 機關名 與 案名 之間的空格數
+    const SPINE_GAP_2 = 9;  // 案名 與 報告書名 之間的空格數
+
+    function getSpineText() {
+        const org = document.getElementById('spineOrg').value.trim();
+        const proj = document.getElementById('spineProject').value.trim();
+        const rep = document.getElementById('spineReport').value.trim();
+        let text = org;
+        if (proj) text += (text ? ' '.repeat(SPINE_GAP_1) : '') + proj;
+        if (rep) text += (text ? ' '.repeat(SPINE_GAP_2) : '') + rep;
+        return text;
+    }
+
+    function updateSpinePreview() {
+        const text = getSpineText();
+        const prev = document.getElementById('spinePreview');
+        prev.textContent = text || '（請輸入上方欄位）';
+        const warn = document.getElementById('spineWarn');
+        // 粗估：A4 可用高度約 (16838-1440*2)/20 = 697pt；每個中文字約等於字體大小
+        const fs = parseFloat(document.getElementById('spineFontSize').value) || 13;
+        const approx = [...text].reduce((s, ch) => s + (ch === ' ' ? fs * 0.5 : (/[\u0000-\u00ff]/.test(ch) ? fs * 0.55 : fs)), 0);
+        if (approx > 690) {
+            warn.style.display = 'block';
+            warn.textContent = `⚠️ 文字預估約 ${Math.round(approx)}pt，超過 A4 可用高度 (約 697pt)，會換成第二行，建議縮小字體或確認內容。`;
+        } else warn.style.display = 'none';
+    }
+    ['spineOrg', 'spineProject', 'spineReport', 'spineFontSize'].forEach(id => document.getElementById(id).addEventListener('input', updateSpinePreview));
+
+    function xmlEscape(s) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    async function exportSpine() {
+        const text = getSpineText();
+        if (!text) return alert("請至少輸入機關名、案名或報告書名其中一項！");
+        if (typeof JSZip === 'undefined') return alert("❌ JSZip 載入失敗，請確認網路連線後重新整理頁面。");
+
+        const fsPt = parseFloat(document.getElementById('spineFontSize').value) || 13;
+        const sz = Math.round(fsPt * 2); // Word 的 sz 單位是半點
+
+        const documentXml =
+`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman" w:eastAsia="標楷體"/><w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r></w:p><w:sectPr><w:type w:val="nextPage"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:left="1797" w:right="1644" w:gutter="0" w:header="0" w:top="1440" w:footer="0" w:bottom="1440"/><w:pgNumType w:fmt="decimal"/><w:textDirection w:val="tbRl"/><w:docGrid w:type="lines" w:linePitch="360" w:charSpace="0"/></w:sectPr></w:body></w:document>`;
+
+        const contentTypes =
+`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`;
+
+        const rels =
+`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;
+
+        const zip = new JSZip();
+        zip.file('[Content_Types].xml', contentTypes);
+        zip.file('_rels/.rels', rels);
+        zip.file('word/document.xml', documentXml);
+        const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+
+        const projName = document.getElementById('spineProject').value.trim().replace(/[\\/:*?"<>|]/g, '').slice(0, 20);
+        const dl = document.createElement('a'); dl.href = URL.createObjectURL(blob);
+        dl.download = `書背${projName ? '_' + projName : ''}.docx`;
+        document.body.appendChild(dl); dl.click(); dl.remove();
     }
 </script>
 
