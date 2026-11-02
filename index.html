@@ -2,11 +2,12 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>LMprint_systemV5.3</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
+        :root { box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
         :root { --primary-color: #0056b3; --secondary-color: #6c757d; --bg-color: #f4f7f6; --border-color: #ccc; --accent: #e8f4fd; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: #333; padding: 20px; display: flex; justify-content: center; }
         .container { background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 900px; position: relative; }
@@ -259,6 +260,17 @@
     document.getElementById('mainTotal').addEventListener('input', updateLiveSummary);
     document.getElementById('appTotal').addEventListener('input', updateLiveSummary);
 
+    // 下載：artifact 內使用 downloads 能力；不可用時退回一般下載
+    async function saveFile(filename, data) {
+        try {
+            const dls = (window.claude && window.claude.use) ? await window.claude.use('downloads') : null;
+            if (dls) { await dls.save({ filename, data }); return; }
+        } catch (e) { if (e && e.code === 'declined') return; console.warn('downloads 失敗', e); }
+        const blob = data instanceof Blob ? data : new Blob([data]);
+        const dl = document.createElement('a'); dl.href = URL.createObjectURL(blob); dl.download = filename;
+        document.body.appendChild(dl); dl.click(); dl.remove();
+    }
+
     // ==================== 1. 專案存取 ====================
     function saveProject() {
         const state = {
@@ -268,9 +280,7 @@
             spineOrg: document.getElementById('spineOrg').value, spineProject: document.getElementById('spineProject').value,
             spineReport: document.getElementById('spineReport').value, spineFontSize: document.getElementById('spineFontSize').value
         };
-        const dl = document.createElement('a'); dl.setAttribute("href", "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state)));
-        dl.setAttribute("download", `送印專案_${new Date().toISOString().slice(0,10).replace(/-/g,"")}.json`);
-        document.body.appendChild(dl); dl.click(); dl.remove();
+        saveFile(`送印專案_${new Date().toISOString().slice(0,10).replace(/-/g,"")}.json`, JSON.stringify(state));
     }
     function loadProjectFile(event) {
         const file = event.target.files[0]; if (!file) return;
@@ -672,8 +682,7 @@
         });
 
         document.getElementById('outputArea').innerText = outStr; document.getElementById('outputArea').style.display = 'block';
-        const dl = document.createElement('a'); dl.href = URL.createObjectURL(new Blob(["\uFEFF" + outStr], { type: 'text/plain;charset=utf-8' }));
-        dl.download = `送印單_${new Date().toISOString().slice(0,10).replace(/-/g,"")}.txt`; document.body.appendChild(dl); dl.click(); dl.remove();
+        saveFile(`送印單_${new Date().toISOString().slice(0,10).replace(/-/g,"")}.txt`, "\uFEFF" + outStr);
     }
 
     // ==================== 6. 書背產生 (.docx，A4 直書、置中、標楷體) ====================
@@ -812,9 +821,7 @@
         const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 
         const projName = document.getElementById('spineProject').value.trim().replace(/[\\/:*?"<>|]/g, '').slice(0, 20);
-        const dl = document.createElement('a'); dl.href = URL.createObjectURL(blob);
-        dl.download = `書背${projName ? '_' + projName : ''}.docx`;
-        document.body.appendChild(dl); dl.click(); dl.remove();
+        saveFile(`書背${projName ? '_' + projName : ''}.docx`, blob);
     }
 </script>
 
