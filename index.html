@@ -84,6 +84,9 @@
         .spine-row input[type="text"] { flex: 1; }
         .spine-preview { display: flex; justify-content: center; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 10px; margin: 10px 0; height: 220px; overflow: hidden; }
         .spine-preview-text { writing-mode: vertical-rl; font-family: "標楷體", "DFKai-SB", serif; font-size: 16px; white-space: pre; letter-spacing: 1px; }
+        .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 12px 90px; }
+        .chip { padding: 3px 10px; font-size: 12px; background: #fff; color: #7b3fb5; border: 1px solid #c9a6ea; border-radius: 14px; cursor: pointer; }
+        .chip:hover { background: #7b3fb5; color: #fff; }
         button.btn-spine { background-color: #7b3fb5; width: 100%; font-size: 15px; padding: 10px; }
         button.btn-spine:hover { background-color: #63318f; }
 
@@ -211,8 +214,10 @@
         <h3>📕 書背產生</h3>
         <div class="spine-box">
             <div class="spine-row"><label for="spineOrg">機關名</label><input type="text" id="spineOrg" placeholder="例如: 農業部農田水利署臺中管理處"></div>
+            <div class="chip-row" id="orgChips"></div>
             <div class="spine-row"><label for="spineProject">案名</label><input type="text" id="spineProject" placeholder="例如: 白冷圳擴大灌溉服務設施規劃管理維護工作委託技術服務"></div>
             <div class="spine-row"><label for="spineReport">報告書名</label><input type="text" id="spineReport" placeholder="例如: 期中報告"></div>
+            <div class="chip-row" id="reportChips"></div>
             <div class="spine-row">
                 <label for="spineFontSize">字體大小</label>
                 <input type="number" id="spineFontSize" value="13" min="8" max="40" step="0.5" style="width: 70px;"> <span style="font-size: 13px; color: #666;">pt（標楷體，原書背檔為 13）</span>
@@ -405,20 +410,25 @@
                 }
             }
 
-            // 【調整2】連續黑白頁容忍：只在「兩個 A4 彩色頁之間、且中間全是 A4」時才補成彩色。
+            // 【調整2】連續黑白頁容忍：以「真正的彩色 A4 頁」為邊界，兩個彩頁之間的黑白頁數
+            // （扣掉已因雙面成對而算整張彩色的頁）≦ 容忍值時，把中間整段補成彩色。
             // 中間只要夾到 A3 頁，那段黑白頁本來就必須插頁處理，所以不補色。
-            let lastColorIdx = -1;
+            // 補色後輸出會是連續頁碼；最前、最後多出來的成對頁不會被補，所以 2~5 仍輸出 2~5。
+            const origColor = pagesData.map(p => p ? p.isColor : false);
+            let lastActual = -1;
             for (let i = 1; i <= totalPages; i++) {
-                if (pagesData[i].size === 'A4' && sheetColor[i]) {
-                    if (lastColorIdx !== -1) {
-                        let gapLen = i - lastColorIdx - 1;
-                        if (gapLen > 0 && gapLen <= tolerance) {
-                            let allA4 = true;
-                            for (let j = lastColorIdx + 1; j < i; j++) { if (pagesData[j].size !== 'A4') { allA4 = false; break; } }
-                            if (allA4) { for (let j = lastColorIdx + 1; j < i; j++) pagesData[j].isColor = true; }
+                if (pagesData[i].size === 'A4' && origColor[i]) {
+                    if (lastActual !== -1 && i - lastActual > 1) {
+                        let eff = 0, allA4 = true;
+                        for (let j = lastActual + 1; j < i; j++) {
+                            if (pagesData[j].size !== 'A4') { allA4 = false; break; }
+                            if (!sheetColor[j]) eff++;
+                        }
+                        if (allA4 && eff <= tolerance) {
+                            for (let j = lastActual + 1; j < i; j++) pagesData[j].isColor = true;
                         }
                     }
-                    lastColorIdx = i;
+                    lastActual = i;
                 }
             }
         }
@@ -691,6 +701,24 @@
         } else warn.style.display = 'none';
     }
     ['spineOrg', 'spineProject', 'spineReport', 'spineFontSize'].forEach(id => document.getElementById(id).addEventListener('input', updateSpinePreview));
+
+    // 快速填寫選項：點選後填入欄位，之後仍可自由修改；想增減選項直接改下面兩個陣列
+    const ORG_PRESETS = ['農業部農田水利署臺中管理處', '農業部農田水利署雲林管理處', '農業部農田水利署新竹管理處', '農業部農田水利署嘉南管理處', '農業部農田水利署南投管理處', '屏東縣政府'];
+    const REPORT_PRESETS = ['服務建議書', '工作執行計畫書', '期初報告', '期中報告', '期末報告', '成果報告'];
+    function renderChips(containerId, presets, inputId) {
+        const box = document.getElementById(containerId);
+        presets.forEach(txt => {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'chip'; b.textContent = txt;
+            b.addEventListener('click', () => {
+                const inp = document.getElementById(inputId);
+                inp.value = txt; updateSpinePreview(); inp.focus();
+            });
+            box.appendChild(b);
+        });
+    }
+    renderChips('orgChips', ORG_PRESETS, 'spineOrg');
+    renderChips('reportChips', REPORT_PRESETS, 'spineReport');
 
     function xmlEscape(s) {
         return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
